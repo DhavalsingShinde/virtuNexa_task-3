@@ -1,0 +1,117 @@
+import sqlite3
+from datetime import datetime
+
+# Database setup
+conn = sqlite3.connect("finance_tracker.db")
+cursor = conn.cursor()
+
+# Create table for transactions
+cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT CHECK( type IN ('Income','Expense') ),
+                    category TEXT,
+                    amount REAL,
+                    date TEXT)''')
+conn.commit()
+
+# Function to add a transaction
+def add_transaction():
+    try:
+        t_type = input("Enter type (Income/Expense): ").capitalize()
+        if t_type not in ["Income", "Expense"]:
+            print("Invalid type. Enter either 'Income' or 'Expense'.")
+            return
+
+        category = input("Enter category (e.g., Salary, Rent, Food): ")
+        amount = float(input("Enter amount (₹): "))
+        date = datetime.now().strftime("%Y-%m-%d")
+
+        cursor.execute("INSERT INTO transactions (type, category, amount, date) VALUES (?, ?, ?, ?)",
+                       (t_type, category, amount, date))
+        conn.commit()
+        print("\n✅ Transaction added successfully!\n")
+
+    except ValueError:
+        print("\n❌ Invalid amount entered. Please try again.\n")
+
+# Function to view all transactions
+def view_transactions():
+    cursor.execute("SELECT * FROM transactions")
+    records = cursor.fetchall()
+    
+    if not records:
+        print("\n🔹 No transactions found.\n")
+        return
+
+    print("\n📋 All Transactions")
+    print("-" * 50)
+    print("ID | Type   | Category     | Amount  | Date")
+    print("-" * 50)
+    for row in records:
+        print(f"{row[0]:<2} | {row[1]:<7} | {row[2]:<12} | ₹{row[3]:<6} | {row[4]}")
+    print("\n")
+
+# Function to delete a transaction
+def delete_transaction():
+    view_transactions()
+    try:
+        transaction_id = int(input("Enter Transaction ID to delete: "))
+        cursor.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+            print("\n❌ Transaction ID not found.\n")
+        else:
+            print("\n✅ Transaction deleted successfully!\n")
+
+    except ValueError:
+        print("\n❌ Invalid input. Please enter a valid Transaction ID.\n")
+
+# Function to generate a monthly report
+def monthly_report():
+    cursor.execute('''SELECT category, SUM(amount) FROM transactions
+                      WHERE type='Expense' AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+                      GROUP BY category''')
+    records = cursor.fetchall()
+
+    if not records:
+        print("\n🔹 No expense data available for this month.\n")
+        return
+
+    print("\n📊 Monthly Expense Report")
+    print("-" * 30)
+    print("Category       | Total Spent")
+    print("-" * 30)
+    for row in records:
+        print(f"{row[0]:<12} | ₹{row[1]:.2f}")
+    print("\n")
+
+# Main menu
+def main():
+    while True:
+        print("\n📌 Personal Finance Tracker")
+        print("1️⃣ Add Transaction")
+        print("2️⃣ View Transactions")
+        print("3️⃣ Delete Transaction")
+        print("4️⃣ Monthly Expense Report")
+        print("5️⃣ Exit")
+        choice = input("Enter your choice: ")
+
+        if choice == '1':
+            add_transaction()
+        elif choice == '2':
+            view_transactions()
+        elif choice == '3':
+            delete_transaction()
+        elif choice == '4':
+            monthly_report()
+        elif choice == '5':
+            print("\n🔚 Exiting... Your data is saved securely. Goodbye!\n")
+            conn.close()
+            break
+        else:
+            print("\n❌ Invalid choice! Please try again.\n")
+
+# Run the program
+if __name__ == "__main__":
+    main()
